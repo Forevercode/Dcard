@@ -5,33 +5,37 @@ import bs4
 from bs4 import BeautifulSoup
 from variable import *
 from counter import Counter
+from errorhandle import *
+import re
 from threading import Thread
 import time
-import copy
+
 
 
 class DcardSpider:
 
     def __init__(self,drivepath=r"C:\Users\user\OneDrive\桌面\Forever\python\chromedriver.exe",url=r"https://www.dcard.tw/f"):
-
+        self.driver = None
         self.drivepath=drivepath
-        self.url=url
-        self.driver=None
 
-        if self.url==r"https://www.dcard.tw/f":
-            self.urlbase=r"https://www.dcard.tw"
+        self.url=url
+        self.urlbase = r"https://www.dcard.tw"
 
         self.scroll_counter=Counter(start=0,step=2000)
         self.scroll_counter_iter=iter(self.scroll_counter)
 
 
+    def __show_information(gender, identify,category, article_title, outline, number_of_comments,link,post_time,setted_to_top):
+        information_of_remark=[setted_to_top]
 
-    def __show_information(gender, school,classification, article_title, outline, number_of_comments,link,time_post):
-        print(f"時間 :{time_post}  卡稱學校 :{school}  分類 :{classification}   ({gender.text if gender is not None else '##'})")
+        print(f"時間 :{post_time}  卡稱學校 :{identify}  分類 :{category}   ({gender.text if gender is not None else '##'})")
         print(f"title :{article_title}")
         print(f"      {outline}")
         print(f"留言數: {number_of_comments} --{link}")
-        print()
+        if not None in information_of_remark:
+            remark=" ".join(information_of_remark)
+            print(f"其它備注 :{remark}")
+        print("\n\n")
 
     def __gathering_information(self,souptagobject):
 
@@ -40,57 +44,63 @@ class DcardSpider:
         if type(souptagobject)!=bs4.element.Tag:
             raise Exception('Arguments "souptagobject" expect a tag object in Beautifulsoup passed')
 
-       # gender,school
+       # gender,identify,category,settotop
         gender =souptagobject.find("title")
-        school = souptagobject.find_all(class_=class_school_and_classification_in_mainpage)[1]
-        school = school.text
+        identify_catogery=souptagobject.find(class_=class_identify_and_category_in_mainpage)
 
-       # article title
+
+        if len(identify_catogery.contents)==2:             #The situation happen when scraping in all-webpage
+            identify=identify_catogery.contents[1].text
+        elif len(identify_catogery.contents)==1:           #The situation happen when scraping in specific-category-page
+            identify=identify_catogery.contents[0].text
+        else:                                              #The situation that the developer of dcard scraper have never expected
+            raise Exception("Some situations that the developer of dcard scraper have never expected happened ")
+
+
+
+        if not souptagobject.find(class_=class_setted_to_top) is None:
+           setted_to_top=souptagobject.find(class_=class_setted_to_top).text
+        else :
+           setted_to_top=None
+
+
+       #link
+        link = "".join([self.urlbase, souptagobject.a["href"]])
+
+       # article title,outline
         article_title = souptagobject.find(class_=class_article_title).text
-
-       # outline
         outline = souptagobject.find(class_=class_outline)
         if outline is not None:
            outline = outline.text
 
        # number of comments,link
-        number_of_comments = souptagobject.find(class_=class_number_of_comments).span.text
-        link = "".join([self.urlbase,souptagobject.a["href"]])
 
-       # ..getting from post webpage..  time,classification
+        if  souptagobject.find(class_=class_number_of_comments)!=None:
+            number_of_comments=souptagobject.find(class_=class_number_of_comments).span.text
+
+        elif len(souptagobject.find_all(class_=class_number_of_comments_when_on_one_comments))>0:
+            number_of_comments=souptagobject.find_all(class_=class_number_of_comments_when_on_one_comments)[1].span.text
+        else:
+            raise CommentNotFoundError(f"comment not found in post :{article_title}")
+
+
+
+
+
+       # ..getting from post webpage..  time,category
         post = requests.get(link)
         soup_for_post = BeautifulSoup(post.text, "lxml")
 
-        classification,time_post = soup_for_post.find_all(class_=class_time_and_classification_in_postpage)
+        category,time_post = soup_for_post.find_all(class_=class_time_and_classification_in_postpage)
         time_post=time_post.text
-        classification=classification.a.text
+        category=category.a.text
 
       # post id
         post_id = souptagobject.parent["data-key"]
-        return {"gender":gender,"school":school,"classification":classification,"article title":article_title,"outline":outline,"link":link,"post id":post_id,"time post":time_post,"number of comments":number_of_comments}
+        return {"gender":gender,"identify":identify,"category":category,"article title":article_title,"outline":outline,"link":link,"post id":post_id,"post time":time_post,"number of comments":number_of_comments,"setted to top":setted_to_top}
 
 
 
-    def init_driver(self,hidediver=False):
-        if self.driver!=None:
-           raise Exception("The driver is expected to be closed before initialized again ")
-
-        if hidediver==True:
-           opt=ChromeOptions()
-           opt.add_argument("--headless")
-           self.driver=webdriver.Chrome(self.drivepath,options=opt)
-
-        elif hidediver==False:
-           self.driver = webdriver.Chrome(self.drivepath)
-
-        else:
-            raise TypeError('Argument "hidedriver" except boolean object')
-
-        self.driver.get(self.url)
-
-    def close_driver(self):
-        self.driver.close()
-        self.driver=None
 
     def scraping(self,scrollingtime="infinite"):
         if self.driver ==None:
@@ -117,30 +127,34 @@ class DcardSpider:
             for i in range(len(articles)):
                 article = articles[i]
 
+
+
+
                 #gathering information
                 information=self.__gathering_information(souptagobject=article)
 
-                gender=information.get(genderkey)
-                school=information.get(schoolkey)
-                classification=information.get(classificationkey)
+                gender=information.get(key_gender)
+                identify=information.get(key_idenfity)
+                category=information.get(key_category)
 
-                article_title = information.get(articletitlekey)
-                outline = information.get(outlinekey)
+                article_title = information.get(key_articletitle)
+                outline = information.get(key_outline)
 
-                time_post=information.get(timepostkey)
-                post_id=information.get(postidkey)
-                link=information.get(linkkey)
+                post_time=information.get(key_posttime)
+                post_id=information.get(key_postid)
+                link=information.get(key_link)
 
-                number_of_comments=information.get(numberofcommentskey)
+                number_of_comments=information.get(key_numberofcomments)
 
+                setted_to_top=information.get(key_settedtotop)
 
                 # recording article
                 article_record["now"].append(post_id)
 
                 if post_id in article_record["previous"]:
                     continue
-                DcardSpider.__show_information(gender=gender, school=school, classification=classification, article_title=article_title,
-                                 outline=outline, number_of_comments=number_of_comments,link=link,time_post=time_post)
+                DcardSpider.__show_information(gender=gender,identify=identify,category=category,article_title=article_title,
+                                 outline=outline, number_of_comments=number_of_comments,link=link,post_time=post_time,setted_to_top=setted_to_top)
 
             # update record
             article_record["previous"]=article_record["previous"]+article_record["now"]
@@ -151,10 +165,33 @@ class DcardSpider:
         self.driver=None
 
 
+    def init_driver(self,hidediver=False):
+        if self.driver!=None:
+           raise Exception("The driver is expected to be closed before initialized again ")
+
+        if hidediver==True:
+           opt=ChromeOptions()
+           opt.add_argument("--headless")
+           self.driver=webdriver.Chrome(self.drivepath,options=opt)
+
+        elif hidediver==False:
+           self.driver = webdriver.Chrome(self.drivepath)
+
+        else:
+            raise TypeError('Argument "hidedriver" except boolean object')
+
+        self.driver.get(self.url)
+
+    def close_driver(self):
+        self.driver.close()
+        self.driver=None
+
+
+
 
 if __name__=="__main__":
 
-    dsp = DcardSpider()
+    dsp = DcardSpider(url=ctg_female_sex)
 
     dsp.init_driver(hidediver=True)
-    dsp.scraping(scrollingtime=4)
+    dsp.scraping(scrollingtime=30)
