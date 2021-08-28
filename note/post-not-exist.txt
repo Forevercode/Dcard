@@ -1,0 +1,1 @@
+detecking if a post is deleted by if the time and the category can't find in postwebpage

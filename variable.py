@@ -25,6 +25,7 @@ key_link="link"
 key_postid="post id"
 key_posttime="post time"
 key_settedtotop="setted to top"
+key_existstatus="exist status"
 
 #counter
 infinite="infinite"

@@ -1,0 +1,18 @@
+main webpage
+    all:
+       information can be found :identify and category
+    specific category:
+       information can be found :only  identify
+
+
+               what to do :   1 to correctly locate identify property:
+                                  if len(identify_catogery.contents)==2:
+                                       identify=identify_catogery.contents[1].text
+                                  elif len(identify_catogery.contents)==1:
+                                       identify=identify_catogery.contents[0].text
+                              2 always find category on post webpage
+
+
+
+
+

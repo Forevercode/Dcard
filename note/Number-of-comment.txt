@@ -1,0 +1,8 @@
+if no one comment on a post,the class property value in html for finding comment will be different
+    what to do : (in dcard.py)
+                          if  souptagobject.find(class_=class_number_of_comments)!=None:
+                               number_of_comments=souptagobject.find(class_=class_number_of_comments).span.text
+                          elif len(souptagobject.find_all(class_=class_number_of_comments_when_on_one_comments))>0:
+                               number_of_comments=souptagobject.find_all(class_=class_number_of_comments_when_on_one_comments)[1].span.text
+                          else:
+                                raise CommentNotFoundError(f"comment not found in post :{article_title}")

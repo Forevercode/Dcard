@@ -1,0 +1,18 @@
+enhance speed:
+1 check if  posts has been stored before gathering information
+2 It will not direct to the webpage again if the url of two scraping is same
+
+debug:
+1 fix the post information "post id" problem
+2 fix the post information "number of comments" problem
+
+new thing:
+1 new property "exist status">>separate the post that has been deleted
+2 add database system.All posts is stored in one file
+
+
+#
+what i learn :
+1.Difference between r+,w+
+2how to use dict.update
+

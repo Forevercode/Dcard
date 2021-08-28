@@ -1,0 +1,3 @@
+class UnExceptedError(Exception):
+     pass
+
